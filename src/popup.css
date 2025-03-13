@@ -1,6 +1,6 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 html,
 body {
-  @apply overflow-hidden w-[300px] h-[400px] p-0 m-0;
+  @apply m-0 h-[400px] w-[300px] overflow-hidden p-0;
 }

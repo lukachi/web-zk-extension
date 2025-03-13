@@ -1,3 +1,3 @@
 export default function LocalAuth() {
-    return <></>
+  return <></>
 }
