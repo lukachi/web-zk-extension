@@ -207,6 +207,35 @@ export class CachedRemoteFileLoader implements IRemoteFileLoader {
     }
   }
 
+  /**
+   * Check whether the file is already fully downloaded.
+   *
+   * This method fetches the total file size (via a HEAD request) to determine
+   * the expected number of chunks, then iterates over each chunk key in the cache.
+   * If all expected chunks are present and valid (non-expired), it returns true.
+   */
+  public async isDownloaded(): Promise<boolean> {
+    try {
+      const totalSize = await this.getTotalFileSize()
+      const expectedChunks = Math.ceil(totalSize / this.chunkSize)
+      for (let i = 0; i < expectedChunks; i++) {
+        const chunk = await this.cache.getChunk(
+          this.getCacheKey(i),
+          this.cacheExpiration,
+        )
+        if (chunk === null) {
+          return false
+        }
+      }
+      return true
+    } catch (error) {
+      if (error instanceof Error) {
+        this.onError?.(error)
+      }
+      return false
+    }
+  }
+
   public cancel(): void {
     this.controller.abort()
   }
