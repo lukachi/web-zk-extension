@@ -1,8 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import webExtension, { readJsonFile } from 'vite-plugin-web-extension'
-// @ts-ignore
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-expect-error
 import tailwindcss from '@tailwindcss/vite'
+import tsconfigPaths from 'vite-tsconfig-paths'
+import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill'
+import { NodeModulesPolyfillPlugin } from '@esbuild-plugins/node-modules-polyfill'
+import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
 function generateManifest() {
   const manifest = readJsonFile('src/manifest.json')
@@ -23,5 +28,29 @@ export default defineConfig({
       manifest: generateManifest,
     }),
     tailwindcss(),
+    NodeGlobalsPolyfillPlugin({
+      process: true,
+      buffer: true,
+    }),
+    NodeModulesPolyfillPlugin(),
+    tsconfigPaths(),
   ],
+  optimizeDeps: {
+    esbuildOptions: {
+      define: {
+        global: 'globalThis',
+      },
+    },
+  },
+  build: {
+    sourcemap: true,
+    target: 'esnext',
+    rollupOptions: {
+      plugins: [
+        // Enable rollup polyfills plugin
+        // used during production bundling
+        nodePolyfills(),
+      ],
+    },
+  },
 })

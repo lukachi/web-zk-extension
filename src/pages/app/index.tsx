@@ -1,6 +1,7 @@
 import { ArchiveIcon, CogIcon, HomeIcon, UserIcon } from 'lucide-react'
 
-import UiDock from '../../ui/UiDock'
+import UiDock from '@/ui/UiDock'
+
 import CircuitsList from './components/CircuitsList'
 
 const items = [
