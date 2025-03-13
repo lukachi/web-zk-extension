@@ -3,9 +3,8 @@ import { useTimeoutFn } from 'react-use'
 
 import { CachedRemoteFileLoader } from '@/helpers/chunked-loader'
 import { formatDateDMYT } from '@/helpers/formatters'
+import { Circuit } from '@/store/circuits'
 import { UiButton } from '@/ui/UiButton'
-
-import { Circuit } from '../types'
 
 type Props = {
   circuit: Circuit

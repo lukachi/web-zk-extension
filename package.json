@@ -30,7 +30,8 @@
     "snarkjs": "^0.7.5",
     "tailwind-merge": "^2.6.0",
     "tailwind-variants": "^0.3.1",
-    "tailwindcss": "^4.0.13"
+    "tailwindcss": "^4.0.13",
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
