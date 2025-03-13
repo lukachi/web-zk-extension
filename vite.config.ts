@@ -9,8 +9,9 @@ import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfil
 import { NodeModulesPolyfillPlugin } from '@esbuild-plugins/node-modules-polyfill'
 import { nodePolyfills } from 'vite-plugin-node-polyfills'
 
+const manifest = readJsonFile('src/manifest.json')
+
 function generateManifest() {
-  const manifest = readJsonFile('src/manifest.json')
   const pkg = readJsonFile('package.json')
   return {
     name: pkg.name,
@@ -21,36 +22,41 @@ function generateManifest() {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [
-    react(),
-    webExtension({
-      manifest: generateManifest,
-    }),
-    tailwindcss(),
-    NodeGlobalsPolyfillPlugin({
-      process: true,
-      buffer: true,
-    }),
-    NodeModulesPolyfillPlugin(),
-    tsconfigPaths(),
-  ],
-  optimizeDeps: {
-    esbuildOptions: {
-      define: {
-        global: 'globalThis',
+export default defineConfig(() => {
+  return {
+    plugins: [
+      react(),
+      webExtension({
+        manifest: generateManifest,
+        additionalInputs: [
+          ...manifest.web_accessible_resources.map(el => el.resources).flat(),
+        ],
+      }),
+      tailwindcss(),
+      NodeGlobalsPolyfillPlugin({
+        process: true,
+        buffer: true,
+      }),
+      NodeModulesPolyfillPlugin(),
+      tsconfigPaths(),
+    ],
+    optimizeDeps: {
+      esbuildOptions: {
+        define: {
+          global: 'globalThis',
+        },
       },
     },
-  },
-  build: {
-    sourcemap: true,
-    target: 'esnext',
-    rollupOptions: {
-      plugins: [
-        // Enable rollup polyfills plugin
-        // used during production bundling
-        nodePolyfills(),
-      ],
+    build: {
+      sourcemap: true,
+      target: 'esnext',
+      rollupOptions: {
+        plugins: [
+          // Enable rollup polyfills plugin
+          // used during production bundling
+          nodePolyfills(),
+        ],
+      },
     },
-  },
+  }
 })
