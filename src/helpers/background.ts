@@ -1,27 +1,28 @@
+import { PegasusRPCMessage } from '@webext-pegasus/rpc'
 import browser from 'webextension-polyfill'
 
 // -----------------------------------------------
 // Types for Messages & Handlers
 // -----------------------------------------------
-export interface ExtensionMessage {
+export interface ExtensionMessage<T> {
   method: string
   id?: number
-  data?: unknown
+  data?: T
   error?: unknown
   tabId?: number
 }
 
-export type HandlerFunction = (
-  message: ExtensionMessage,
+export type HandlerFunction<T> = (
+  message: ExtensionMessage<T>,
   sender: browser.Runtime.MessageSender,
 ) => Promise<unknown>
 
 // -----------------------------------------------
 // Messaging Utilities
 // -----------------------------------------------
-export async function sendMessageToContentScript(
+export async function sendMessageToContentScript<T>(
   tabId: number,
-  message: ExtensionMessage,
+  message: ExtensionMessage<T>,
 ): Promise<void> {
   try {
     await browser.tabs.sendMessage(tabId, {
@@ -34,8 +35,8 @@ export async function sendMessageToContentScript(
   }
 }
 
-export async function sendMessageToAllTabs(
-  message: ExtensionMessage,
+export async function sendMessageToAllTabs<T>(
+  message: ExtensionMessage<T>,
 ): Promise<void> {
   const tabs = await browser.tabs.query({})
   for (const tab of tabs) {
@@ -45,11 +46,11 @@ export async function sendMessageToAllTabs(
   }
 }
 
-export function registerMessageListener(handlers: {
-  [method: string]: HandlerFunction
-}) {
+type MessageHandlers = Record<string, HandlerFunction<never>>
+
+export function registerMessageListener(handlers: MessageHandlers) {
   browser.runtime.onMessage.addListener(
-    async (message: ExtensionMessage, sender, sendResponse) => {
+    async (message: ExtensionMessage<never>, sender, sendResponse) => {
       const { method, id } = message
       if (handlers[method]) {
         try {
@@ -125,7 +126,7 @@ export function initPopupManagement(): void {
       _popupId = undefined
       if (!_isClosingPopupByUserAction) {
         // Clean up pending operations as needed.
-        console.log('Popup closed unexpectedly. Clean up pending operations.')
+        console.warn('Popup closed unexpectedly. Clean up pending operations.')
       }
       _isClosingPopupByUserAction = false
     }
@@ -146,4 +147,21 @@ export function updateBadgeOnStorageChange(): void {
     // Optionally implement logic to calculate a badge count.
     updateBadge()
   })
+}
+
+export type ISelfIDService = typeof getSelfIDService
+
+export async function getSelfIDService(message: PegasusRPCMessage): Promise<{
+  tabId: number
+  frameId?: number
+}> {
+  let tabId: number | undefined = message.sender.tabId
+  if (message.sender.context === 'popup') {
+    tabId = (await browser.tabs.query({ active: true, currentWindow: true }))[0]
+      .id
+  }
+  if (tabId === undefined) {
+    throw new Error(`Could not get tab ID for message: ${message.toString()}`)
+  }
+  return { frameId: message.sender.frameId, tabId }
 }

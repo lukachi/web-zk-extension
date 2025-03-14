@@ -1,9 +1,10 @@
+import Avatar from 'boring-avatars'
 import { useMemo, useState } from 'react'
 import { useTimeoutFn } from 'react-use'
 
 import { CachedRemoteFileLoader } from '@/helpers/chunked-loader'
 import { formatDateDMYT } from '@/helpers/formatters'
-import { Circuit } from '@/store/circuits'
+import { Circuit } from '@/store/modules/circuits'
 import { UiButton } from '@/ui/UiButton'
 
 type Props = {
@@ -21,19 +22,19 @@ export default function CircuitItem({ circuit, ...rest }: Props) {
 
   const zKeyLoader = useMemo(
     () =>
-      new CachedRemoteFileLoader(circuit.zKeyUrl, {
+      new CachedRemoteFileLoader(circuit.zKey.url, {
         onProgress: progress => setZKeyDownloadProgress(progress),
         onError: error => setZKeyDownloadError(error),
       }),
-    [circuit.zKeyUrl],
+    [circuit.zKey.url],
   )
   const wasmLoader = useMemo(
     () =>
-      new CachedRemoteFileLoader(circuit.wasmUrl, {
+      new CachedRemoteFileLoader(circuit.wasm.url, {
         onProgress: progress => setWasmDownloadProgress(progress),
         onError: error => setWasmDownloadError(error),
       }),
-    [circuit.wasmUrl],
+    [circuit.wasm.url],
   )
 
   useTimeoutFn(async () => {
@@ -48,11 +49,15 @@ export default function CircuitItem({ circuit, ...rest }: Props) {
   return (
     <li {...rest} className='flex flex-col justify-between gap-x-6 py-5'>
       <div className='flex min-w-0 gap-x-4'>
-        <img
-          alt=''
-          src={circuit.iconUrl}
-          className='size-12 flex-none rounded-full bg-gray-50'
-        />
+        {circuit.iconUrl ? (
+          <img
+            alt=''
+            src={circuit.iconUrl}
+            className='size-12 flex-none rounded-full bg-gray-50'
+          />
+        ) : (
+          <Avatar name={circuit.name} size={12 * 4} />
+        )}
         <div className='flex min-w-0 flex-auto flex-col gap-2'>
           <p className='text-sm/6 font-semibold text-gray-900'>
             {circuit.name}

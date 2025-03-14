@@ -14,9 +14,21 @@ importers:
       '@tailwindcss/vite':
         specifier: ^4.0.13
         version: 4.0.13(vite@5.4.14(@types/node@22.13.10)(lightningcss@1.29.2)(terser@5.39.0))
+      '@webext-pegasus/rpc':
+        specifier: ^0.3.6
+        version: 0.3.6
+      '@webext-pegasus/store-zustand':
+        specifier: ^0.3.6
+        version: 0.3.6(zustand@5.0.3(@types/react@18.3.18)(react@18.3.1))
+      '@webext-pegasus/transport':
+        specifier: ^0.3.6
+        version: 0.3.6
       axios:
         specifier: ^1.8.3
         version: 1.8.3
+      boring-avatars:
+        specifier: ^1.11.2
+        version: 1.11.2
       buffer:
         specifier: ^6.0.3
         version: 6.0.3
@@ -865,6 +877,20 @@ packages:
     peerDependencies:
       vite: ^4.2.0 || ^5.0.0 || ^6.0.0
 
+  '@webext-pegasus/rpc@0.3.6':
+    resolution: {integrity: sha512-iMVMRnvQVZKbcUj+9WqbFeYBOUuSkfcqtQlgeke9V3uurMHGhG8GIUzSXS/Oni1kk2qbc0GfbBXRTZZcvS2Frg==}
+
+  '@webext-pegasus/store-zustand@0.3.6':
+    resolution: {integrity: sha512-Hxa9TeD+muD4T+JkydpgtlrhW2HG4YgjosesqBPCHXZ3CJEYQFrhRq5dbFWAgax0kW5YRUcbN2ZcY8+ear9esQ==}
+    peerDependencies:
+      zustand: ^4
+
+  '@webext-pegasus/store@0.3.6':
+    resolution: {integrity: sha512-8G7n+Siduq0LVLjc1dFuVsX11Wm8YB04Au2iXaArjc6rXpQFOSb1lcZhhN887UYVSuxGdDTMG9D5WipIFQJ4+w==}
+
+  '@webext-pegasus/transport@0.3.6':
+    resolution: {integrity: sha512-nGXkOyQWSWXCfY+iMKJA2dg29WyRTVH+0GtFSgWIBg+yORIio5kuwMQj2gFrFUH8ixzPqJyJEDWt45t74GUm7g==}
+
   '@xobotyi/scrollbar-width@1.9.5':
     resolution: {integrity: sha512-N8tkAACJx2ww8vFMneJmaAgmjAG1tnVBZJRLRcx061tmsLRZHSEZSLuGWnwPtunsSLvSqXQ2wfp7Mgqg1I+2dQ==}
 
@@ -1025,6 +1051,9 @@ packages:
 
   boolbase@1.0.0:
     resolution: {integrity: sha512-JZOSA7Mo9sNGB8+UjSgzdLtokWAky1zbztM3WRLCbZ70/3cTANmQmOdR7y2g+J0e2WXywy1yS468tY+IruqEww==}
+
+  boring-avatars@1.11.2:
+    resolution: {integrity: sha512-3+wkwPeObwS4R37FGXMYViqc4iTrIRj5yzfX9Qy4mnpZ26sX41dGMhsAgmKks1r/uufY1pl4vpgzMWHYfJRb2A==}
 
   boxen@7.1.1:
     resolution: {integrity: sha512-2hCgjEmP8YLWQ130n2FerGv7rYpfBmnmp9Uy2Le1vge6X3gZIfSmEzP5QTDElFxcvVcXlEn8Aq6MU/PZygIOog==}
@@ -2500,6 +2529,10 @@ packages:
   nanoassert@2.0.0:
     resolution: {integrity: sha512-7vO7n28+aYO4J+8w96AzhmU8G+Y/xpPDJz/se19ICsqj/momRbb9mh9ZUtkoJ5X3nTnPdhEJyc0qnM6yAsHBaA==}
 
+  nanoevents@6.0.2:
+    resolution: {integrity: sha512-FRS2otuFcPPYDPYViNWQ42+1iZqbXydinkRHTHFxrF4a1CpBfmydR9zkI44WSXAXCyPrkcGtPk5CnpW6Y3lFKQ==}
+    engines: {node: ^12.0.0 || ^14.0.0 || >=16.0.0}
+
   nanoid@3.3.9:
     resolution: {integrity: sha512-SppoicMGpZvbF1l3z4x7No3OlIjP7QJvC9XR7AhZr1kL133KHnKPztkKDc+Ir4aJ/1VhTySrtKhrsycmrMQfvg==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
@@ -2979,6 +3012,10 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
+  serialize-error@9.1.1:
+    resolution: {integrity: sha512-6uZQLGyUkNA4N+Zii9fYukmNu9PEA1F5rqcwXzN/3LtBjwl2dFBbVZ1Zyn08/CGkB4H440PIemdOQBt1Wvjbrg==}
+    engines: {node: ^12.20.0 || ^14.13.1 || >=16.0.0}
+
   set-cookie-parser@2.7.1:
     resolution: {integrity: sha512-IOc8uWeOZgnb3ptbCURJWNjWUPcO3ZnTTdzsurqERrP6nPyv+paC55vJM0LpOlT2ne+Ix+9+CRG1MNLlyZ4GjQ==}
 
@@ -3214,6 +3251,9 @@ packages:
     resolution: {integrity: sha512-9phl76Cqm6FhSX9Xe1ZUAMLtm1BLkKj2Qd5ApyWkXzsMRaA7dgr81kf4wJmQf/hAvg8EEyJxDo3du/0KlhPiKQ==}
     engines: {node: '>=0.6.0'}
 
+  tiny-uid@1.1.2:
+    resolution: {integrity: sha512-0beRFXR+fv4C40ND2PqgNjq6iyB1dKXciKJjslLw0kPYCcR82aNd2b+Tt2yy06LimIlvtoehgvrm/fUZCutSfg==}
+
   tinyglobby@0.2.12:
     resolution: {integrity: sha512-qkf4trmKSIiMTs/E63cxH+ojC2unam7rJ0WrauAzpT3ECNTxGRMlaXxVbfxMUC/w0LaYk6jQ4y/nGR9uBO3tww==}
     engines: {node: '>=12.0.0'}
@@ -3270,6 +3310,10 @@ packages:
   type-check@0.4.0:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
     engines: {node: '>= 0.8.0'}
+
+  type-fest@0.21.3:
+    resolution: {integrity: sha512-t0rzBq87m3fVcduHDUFhKmyyX+9eo6WQjZvf51Ea/M0Q7+T374Jp1aUiyUl0GKxp8M/OETVHSDvmkyPgvX+X2w==}
+    engines: {node: '>=10'}
 
   type-fest@1.4.0:
     resolution: {integrity: sha512-yGSza74xk0UG8k+pLh5oeoYirvIiWo5t0/o3zHHAO2tRDiZcxWP7fywNlXhqb6/r6sWvwi+RsyQMWhVLe4BVuA==}
@@ -4203,6 +4247,32 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@webext-pegasus/rpc@0.3.6':
+    dependencies:
+      '@webext-pegasus/transport': 0.3.6
+      type-fest: 0.21.3
+
+  '@webext-pegasus/store-zustand@0.3.6(zustand@5.0.3(@types/react@18.3.18)(react@18.3.1))':
+    dependencies:
+      '@webext-pegasus/store': 0.3.6
+      type-fest: 0.21.3
+      zustand: 5.0.3(@types/react@18.3.18)(react@18.3.1)
+
+  '@webext-pegasus/store@0.3.6':
+    dependencies:
+      '@webext-pegasus/rpc': 0.3.6
+      '@webext-pegasus/transport': 0.3.6
+      type-fest: 0.21.3
+
+  '@webext-pegasus/transport@0.3.6':
+    dependencies:
+      '@types/webextension-polyfill': 0.10.7
+      nanoevents: 6.0.2
+      serialize-error: 9.1.1
+      tiny-uid: 1.1.2
+      type-fest: 2.19.0
+      webextension-polyfill: 0.10.0
+
   '@xobotyi/scrollbar-width@1.9.5': {}
 
   acorn-jsx@5.3.2(acorn@8.14.1):
@@ -4383,6 +4453,8 @@ snapshots:
   bn.js@5.2.1: {}
 
   boolbase@1.0.0: {}
+
+  boring-avatars@1.11.2: {}
 
   boxen@7.1.1:
     dependencies:
@@ -6036,6 +6108,8 @@ snapshots:
 
   nanoassert@2.0.0: {}
 
+  nanoevents@6.0.2: {}
+
   nanoid@3.3.9: {}
 
   natural-compare@1.4.0: {}
@@ -6557,6 +6631,10 @@ snapshots:
 
   semver@7.7.1: {}
 
+  serialize-error@9.1.1:
+    dependencies:
+      type-fest: 2.19.0
+
   set-cookie-parser@2.7.1: {}
 
   set-function-length@1.2.2:
@@ -6839,6 +6917,8 @@ snapshots:
     dependencies:
       setimmediate: 1.0.5
 
+  tiny-uid@1.1.2: {}
+
   tinyglobby@0.2.12:
     dependencies:
       fdir: 6.4.3(picomatch@4.0.2)
@@ -6884,6 +6964,8 @@ snapshots:
   type-check@0.4.0:
     dependencies:
       prelude-ls: 1.2.1
+
+  type-fest@0.21.3: {}
 
   type-fest@1.4.0: {}
 

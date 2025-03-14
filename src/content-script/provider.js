@@ -1,3 +1,4 @@
+/* eslint-disable no-undef */
 class ExtensionProvider {
   constructor() {
     this._events = {}

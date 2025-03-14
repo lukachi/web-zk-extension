@@ -1,7 +1,11 @@
+import { initPegasusTransport } from '@webext-pegasus/transport/content-script'
 import browser from 'webextension-polyfill'
 
+import { circuitsStore } from '@/store/modules/circuits'
+
+initPegasusTransport()
+
 const url = browser.runtime.getURL('src/content-script/provider.js')
-injectScript(url)
 
 function injectScript(url: string) {
   try {
@@ -15,6 +19,10 @@ function injectScript(url: string) {
     console.error('Provider injection failed.', error)
   }
 }
+
+Promise.all([circuitsStore.ready()]).then(() => {
+  injectScript(url)
+})
 
 window.addEventListener('message', event => {
   if (event.source === window && event.data.method) {

@@ -15,7 +15,11 @@
   "dependencies": {
     "@radix-ui/react-slot": "^1.1.2",
     "@tailwindcss/vite": "^4.0.13",
+    "@webext-pegasus/rpc": "^0.3.6",
+    "@webext-pegasus/store-zustand": "^0.3.6",
+    "@webext-pegasus/transport": "^0.3.6",
     "axios": "^1.8.3",
+    "boring-avatars": "^1.11.2",
     "buffer": "^6.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
