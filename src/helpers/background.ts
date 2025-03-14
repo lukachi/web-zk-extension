@@ -1,6 +1,8 @@
 import { PegasusRPCMessage } from '@webext-pegasus/rpc'
 import browser from 'webextension-polyfill'
 
+import { sleep } from '@/helpers/promise'
+
 // -----------------------------------------------
 // Types for Messages & Handlers
 // -----------------------------------------------
@@ -92,25 +94,28 @@ export function registerMessageListener(handlers: MessageHandlers) {
 let _popupId: number | undefined = undefined
 let _isClosingPopupByUserAction = false
 
-export async function openPopup(url: string = ''): Promise<void> {
+export async function openPopup(url: string = ''): Promise<number> {
   const popup = await getPopup()
   if (popup) {
     await browser.windows.update(popup.id!, { focused: true })
-  } else {
-    const currentWin = await browser.windows.getCurrent()
-    const width = 375
-    const height = 620
-    const left = Math.round(currentWin.left! + currentWin.width! - width)
-    const popupWindow = await browser.windows.create({
-      url: `index.html${url}`,
-      type: 'popup',
-      width,
-      height,
-      top: currentWin.top,
-      left,
-    })
-    _popupId = popupWindow.id
+
+    return -1
   }
+
+  const currentWin = await browser.windows.getCurrent()
+  const width = 375
+  const height = 620
+  const left = Math.round(currentWin.left! + currentWin.width! - width)
+  const popupWindow = await browser.windows.create({
+    url: `src/popup.html${url}`,
+    type: 'popup',
+    width,
+    height,
+    top: currentWin.top,
+    left,
+  })
+  _popupId = popupWindow.id
+  return popupWindow.id || -1
 }
 
 export async function getPopup(): Promise<browser.Windows.Window | null> {
@@ -164,4 +169,66 @@ export async function getSelfIDService(message: PegasusRPCMessage): Promise<{
     throw new Error(`Could not get tab ID for message: ${message.toString()}`)
   }
   return { frameId: message.sender.frameId, tabId }
+}
+
+export enum DefaultListenerRequestMethods {
+  RequestConfirmation = 'REQUEST_CONFIRMATION',
+}
+export enum DefaultListenerResponseMethods {
+  ConfirmResponse = 'CONFIRM_RESPONSE',
+}
+
+export async function waitForConfirmationResponse<T>(
+  title: string,
+  message: string,
+  data: T,
+  id = Math.floor(Math.random() * 1000000), // FIXME: generate a random number as the id
+): Promise<boolean> {
+  const windowId = await openPopup()
+
+  await sleep(200)
+
+  // Delegate confirmation: send a message to the popup.
+  pegasusMessageBus.sendMessage(
+    DefaultListenerRequestMethods.RequestConfirmation,
+    {
+      method: DefaultListenerRequestMethods.RequestConfirmation,
+      id: id,
+      data: {
+        title,
+        message,
+        data,
+      },
+    },
+    'popup',
+  )
+
+  return new Promise(resolve => {
+    pegasusMessageBus.onMessage(
+      DefaultListenerResponseMethods.ConfirmResponse,
+      ({ data }) => {
+        if (data.id !== id) return
+
+        resolve(Boolean(data.data))
+        closePopup(windowId)
+      },
+    )
+
+    setTimeout(() => {
+      resolve(false)
+      closePopup(windowId)
+    }, 30000)
+  })
+}
+
+export async function closePopup(id: number) {
+  await browser.runtime.sendMessage({
+    method: 'closePopupByUserAction',
+  })
+  await browser.windows.remove(id)
+}
+
+export async function getIsPopup() {
+  const wnd = await browser.windows.getCurrent()
+  return wnd.type === 'popup'
 }

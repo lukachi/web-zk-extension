@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:watch": "vite build --watch --mode development",
     "lint": "yarn lint:scripts",
     "lint:scripts": "eslint \"{src,config}/**/*.{js,ts,jsx,tsx}\" --cache --cache-location 'node_modules/.cache/.eslintcache' --fix --max-warnings=0",
     "format": "prettier . --check --cache --cache-location='node_modules/.cache/.prettiercache'",
