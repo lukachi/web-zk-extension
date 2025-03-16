@@ -67,8 +67,7 @@ class ExtensionProvider {
           return
 
         if (e.data.type === 'chunk') {
-          console.log('e.data', e.data.data)
-          chunks.push(new Uint8Array(e.data.data))
+          chunks.push(e.data.data)
         } else if (e.data.type === 'end') {
           window.removeEventListener('message', handler)
           resolve(chunks)

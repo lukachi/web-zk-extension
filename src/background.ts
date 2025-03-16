@@ -4,6 +4,7 @@ import {
   definePegasusMessageBus,
 } from '@webext-pegasus/transport'
 import { initPegasusTransport } from '@webext-pegasus/transport/background'
+import { Buffer } from 'buffer'
 import browser from 'webextension-polyfill'
 
 import {
@@ -168,10 +169,11 @@ browser.runtime.onConnect.addListener(port => {
         try {
           for await (const chunk of loader.streamFile()) {
             if (cancelled) break
+
             // Send each chunk as a transferable ArrayBuffer.
             port.postMessage({
               type: 'chunk',
-              data: chunk.buffer,
+              data: Buffer.from(chunk.buffer).toString('base64'),
               requestId: streamId,
             })
             // Yield control to avoid blocking.
