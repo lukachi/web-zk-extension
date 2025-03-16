@@ -36,7 +36,7 @@ const useCircuitsStore = create(
       circuits: [],
       _hasHydrated: false,
     } as StoreState,
-    set => ({
+    (set, get) => ({
       setHasHydrated: (value: boolean) => set({ _hasHydrated: value }),
       addCircuit: (circuit: Circuit): void => {
         set(state => {
@@ -74,6 +74,9 @@ const useCircuitsStore = create(
             ],
           }
         })
+      },
+      getCircuitByName: (name: string): Circuit | undefined => {
+        return get().circuits.find(circuit => circuit.name === name)
       },
       clearStoredKeys: (): void => set({ circuits: [] }),
     }),

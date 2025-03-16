@@ -40,6 +40,46 @@ class ExtensionProvider {
       }
     })
   }
+
+  async streamRequest(args) {
+    return new Promise((resolve, reject) => {
+      const requestId = `${Date.now()}-${Math.random()}`
+      // Post a stream request with a unique requestId.
+      window.postMessage(
+        {
+          from: 'inpage',
+          to: 'content-script',
+          method: args.method,
+          data: args.params,
+          requestId,
+          isStreamRequest: true,
+        },
+        '*',
+      )
+
+      const chunks = []
+      const handler = e => {
+        if (
+          e.source !== window ||
+          e.data?.from !== 'content-script' ||
+          e.data.requestId !== requestId
+        )
+          return
+
+        if (e.data.type === 'chunk') {
+          console.log('e.data', e.data.data)
+          chunks.push(new Uint8Array(e.data.data))
+        } else if (e.data.type === 'end') {
+          window.removeEventListener('message', handler)
+          resolve(chunks)
+        } else if (e.data.type === 'error') {
+          window.removeEventListener('message', handler)
+          reject(new Error(e.data.error))
+        }
+      }
+      window.addEventListener('message', handler)
+    })
+  }
 }
 
 const sendAsyncMessageToContentScript = async args => {

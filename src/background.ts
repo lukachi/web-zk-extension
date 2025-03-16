@@ -20,6 +20,8 @@ import {
 import { sleep } from '@/helpers/promise'
 import { Circuit, circuitsStore } from '@/store/modules/circuits'
 
+import { CachedRemoteFileLoader } from './helpers/chunked-loader'
+
 export type PegasusProtocolMap = {
   [DefaultListenerRequestMethods.RequestConfirmation]: ExtensionMessage<{
     title: string
@@ -39,6 +41,7 @@ declare global {
   let pegasusMessageBus: ReturnType<
     typeof definePegasusMessageBus<PegasusProtocolMap>
   >
+  let activeStreams: Map<string, CachedRemoteFileLoader>
 }
 
 const initStore = async () => {
@@ -60,6 +63,11 @@ const initStore = async () => {
 
 initStore()
   .then(() => {
+    const activeStreams = new Map<string, CachedRemoteFileLoader>()
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    ;(globalThis as any).activeStreams = activeStreams
+
     browser.runtime.onInstalled.addListener(() => {})
 
     registerMessageListener({
@@ -86,13 +94,37 @@ initStore()
           message.data,
         )
 
-        console.log('Add circuit', confirmed)
-
         if (confirmed) {
           circuitsStore.useCircuitsStore.getState().addCircuit(message.data)
         }
 
         await sleep(100)
+      },
+
+      stream_circuit: async (message: ExtensionMessage<{ name: string }>) => {
+        if (!message.data?.name) throw new TypeError('Missing circuit name')
+
+        // Lookup the circuit info (adjust according to your store API)
+        const circuit = circuitsStore.useCircuitsStore
+          .getState()
+          .getCircuitByName(message.data?.name)
+
+        if (!circuit) {
+          throw new Error('Circuit not found')
+        }
+
+        // Create a new loader instance for the circuit.
+        const loader = new CachedRemoteFileLoader(circuit.zKey.url, {
+          version: circuit.zKey.version,
+          // pass any additional options if needed
+        })
+
+        // Generate a unique stream ID.
+        const streamId = `${message.id}`
+        activeStreams.set(streamId, loader)
+
+        // Return the stream ID so the content script can initiate the connection.
+        return { streamId }
       },
     })
     updateBadgeOnStorageChange()
@@ -101,3 +133,69 @@ initStore()
   .catch(err =>
     console.error('Error initializing extension store backend', err),
   )
+
+browser.runtime.onConnect.addListener(port => {
+  let streamId: string | null = null
+  let cancelled = false
+
+  // Listen for disconnect events.
+  port.onDisconnect.addListener(() => {
+    cancelled = true
+  })
+
+  // Wait for the initial "init" message that carries the stream ID.
+  const initListener = (msg: any) => {
+    if (msg && msg.type === 'init' && msg.requestId) {
+      streamId = msg.requestId
+      // Remove this listener once we got the init.
+      port.onMessage.removeListener(initListener)
+
+      // Look up the loader using our streamId.
+      const loader = activeStreams.get(streamId!)
+
+      if (!loader) {
+        port.postMessage({
+          type: 'error',
+          error: 'Stream not found',
+          requestId: streamId,
+        })
+        port.disconnect()
+        return
+      }
+
+      // Start streaming in an async loop.
+      ;(async () => {
+        try {
+          for await (const chunk of loader.streamFile()) {
+            if (cancelled) break
+            // Send each chunk as a transferable ArrayBuffer.
+            port.postMessage({
+              type: 'chunk',
+              data: chunk.buffer,
+              requestId: streamId,
+            })
+            // Yield control to avoid blocking.
+            await new Promise(resolve => setTimeout(resolve, 0))
+          }
+          if (!cancelled) {
+            // Signal end-of-stream.
+            port.postMessage({ type: 'end', requestId: streamId })
+          }
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : String(error)
+          port.postMessage({
+            type: 'error',
+            error: errorMessage,
+            requestId: streamId,
+          })
+        } finally {
+          port.disconnect()
+          activeStreams.delete(streamId!)
+        }
+      })()
+    }
+  }
+
+  port.onMessage.addListener(initListener)
+})

@@ -239,4 +239,36 @@ export class CachedRemoteFileLoader implements IRemoteFileLoader {
   public cancel(): void {
     this.controller.abort()
   }
+
+  /**
+   * Stream the file chunks one by one as Uint8Array.
+   */
+  public async *streamFile(): AsyncGenerator<Uint8Array, void, unknown> {
+    const totalSize = await this.getTotalFileSize()
+    console.log('totalSize: ', totalSize)
+    this.totalChunks = Math.ceil(totalSize / this.chunkSize)
+    console.log('totalChunks: ', this.totalChunks)
+
+    // Clear old versions as before.
+    await this.cache.clearOldVersions(this.url, this.version)
+
+    for (let i = 0; i < this.totalChunks; i++) {
+      let cachedChunk = await this.cache.getChunk(
+        this.getCacheKey(i),
+        this.cacheExpiration,
+      )
+      if (!cachedChunk) {
+        const rangeStart = i * this.chunkSize
+        const rangeEnd = Math.min(
+          rangeStart + this.chunkSize - 1,
+          totalSize - 1,
+        )
+        const buffer = await this.fetchChunk(rangeStart, rangeEnd)
+        cachedChunk = new Uint8Array(buffer)
+        await this.cache.setChunk(this.getCacheKey(i), cachedChunk)
+      }
+      yield cachedChunk
+      // Optionally update progress here if needed.
+    }
+  }
 }

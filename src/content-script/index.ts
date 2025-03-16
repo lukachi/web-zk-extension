@@ -24,16 +24,64 @@ Promise.all([circuitsStore.ready()]).then(() => {
   injectScript(url)
 })
 
+// Listen for window messages coming from the inpage script.
 window.addEventListener('message', event => {
-  if (event.source === window && event.data.method) {
+  // Handle regular (non-stream) requests.
+  if (
+    event.source === window &&
+    event.data.method &&
+    !event.data.isStreamRequest
+  ) {
     const { method, from, to, data, id } = event.data
     if (from === 'inpage' && to === 'content-script') {
-      browser.runtime.sendMessage({
-        id,
-        method,
-        data,
-      })
+      browser.runtime.sendMessage({ id, method, data })
     }
+  }
+
+  // Handle streaming requests from the inpage context.
+  if (
+    event.source === window &&
+    event.data.isStreamRequest &&
+    event.data.method === 'stream_circuit'
+  ) {
+    const requestId = event.data.requestId
+    // Directly use browser.runtime.sendMessage to get the stream ID.
+    browser.runtime
+      .sendMessage({
+        method: 'stream_circuit',
+        data: event.data.data,
+        id: requestId,
+      })
+      .then(response => {
+        // response should contain the streamId from background.
+        const port = browser.runtime.connect()
+        // Send an initialization message with the streamId and requestId.
+        port.postMessage({
+          type: 'init',
+          streamId: response.streamId,
+          requestId,
+        })
+
+        // Relay all messages from background to the inpage context.
+        port.onMessage.addListener(message => {
+          window.postMessage(
+            { ...message, from: 'content-script', to: 'inpage' },
+            '*',
+          )
+        })
+      })
+      .catch(error => {
+        window.postMessage(
+          {
+            from: 'content-script',
+            to: 'inpage',
+            requestId,
+            type: 'error',
+            error: error.message,
+          },
+          '*',
+        )
+      })
   }
 })
 
