@@ -9,8 +9,8 @@ const init = async () => {
   initPegasusTransport({
     namespace: 'zk-ext',
   })
-  definePegasusEventBus()
 
+  const eventBus = definePegasusEventBus()
   const messageBus = definePegasusMessageBus()
 
   await getRPCService('getSelfID', 'background')()
@@ -19,7 +19,7 @@ const init = async () => {
     request: args => {
       messageBus.sendMessage('request', args, 'background')
 
-      return new Promise(resolve => {
+      return new Promise((resolve, reject) => {
         // Variables to help track a streaming response.
         let streamInitialized = false
         let streamController = null
@@ -28,6 +28,12 @@ const init = async () => {
           'request_response',
           message => {
             const extensionMessage = message.data
+
+            if (message.data.error) {
+              reject(message.data.error)
+              removeRequestListener()
+              return
+            }
 
             if (extensionMessage.type === 'stream') {
               // For the first message, initialize the stream.
@@ -75,6 +81,13 @@ const init = async () => {
           },
         )
       })
+    },
+    on: args => {
+      if (!args.event) throw new Error('Missing event')
+
+      if (!args.listener) throw new Error('Missing listener')
+
+      return eventBus.onBroadcastEvent(args.event, args.listener)
     },
   }
 

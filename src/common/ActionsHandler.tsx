@@ -2,8 +2,8 @@ import { useTimeoutFn } from 'react-use'
 
 import { useConfirm } from '@/common/ConfirmationPopup'
 import {
-  DefaultListenerRequestMethods,
-  DefaultListenerResponseMethods,
+  MsgProtocolRequestMethods,
+  MsgProtocolResponseMethods,
 } from '@/helpers/background'
 import { messageBus } from '@/popup'
 
@@ -12,7 +12,7 @@ export default function ActionsHandler() {
 
   useTimeoutFn(() => {
     messageBus.onMessage(
-      DefaultListenerRequestMethods.RequestConfirmation,
+      MsgProtocolRequestMethods.RequestConfirmation,
       async ({ data }) => {
         const confirmationData = data.data
 
@@ -22,7 +22,7 @@ export default function ActionsHandler() {
         )
 
         await messageBus.sendMessage(
-          DefaultListenerResponseMethods.ConfirmResponse,
+          MsgProtocolResponseMethods.ConfirmResponse,
           {
             id: data.id!,
             data: isConfirmed,

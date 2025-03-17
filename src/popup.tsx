@@ -4,7 +4,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
 
-import { PegasusProtocolMap } from '@/background'
+import { PegasusMsgProtocolMap } from '@/background'
 import ActionsHandler from '@/common/ActionsHandler'
 import { ConfirmProvider } from '@/common/ConfirmationPopup'
 import { circuitsStore } from '@/store/modules/circuits'
@@ -12,7 +12,7 @@ import { circuitsStore } from '@/store/modules/circuits'
 import { createRouter } from './routes'
 
 initPegasusTransport()
-export const messageBus = definePegasusMessageBus<PegasusProtocolMap>()
+export const messageBus = definePegasusMessageBus<PegasusMsgProtocolMap>()
 
 Promise.all([circuitsStore.ready()]).then(() => {
   ReactDOM.createRoot(document.body).render(

@@ -95,13 +95,18 @@ export async function getSelfIDService(message: PegasusRPCMessage): Promise<{
   return { frameId: message.sender.frameId, tabId }
 }
 
-export enum DefaultListenerRequestMethods {
+export enum MsgProtocolRequestMethods {
   Request = 'request',
   RequestConfirmation = 'requestConfirmation',
 }
-export enum DefaultListenerResponseMethods {
+export enum MsgProtocolResponseMethods {
   ConfirmResponse = 'CONFIRM_RESPONSE',
   RequestResponse = 'request_response',
+}
+
+export enum EventProtocolListeners {
+  CircuitLoadingProgress = 'circuit_loading_progress',
+  CircuitLoadingError = 'circuit_loading_error',
 }
 
 export async function closePopup(id: number) {

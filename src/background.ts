@@ -8,12 +8,13 @@ import { Buffer } from 'buffer'
 
 import {
   closePopup,
-  DefaultListenerRequestMethods,
-  DefaultListenerResponseMethods,
+  EventProtocolListeners,
   ExtensionMessage,
   getSelfIDService,
   initPopupManagement,
   ISelfIDService,
+  MsgProtocolRequestMethods,
+  MsgProtocolResponseMethods,
   openPopup,
   updateBadgeOnStorageChange,
 } from '@/helpers/background'
@@ -21,77 +22,108 @@ import { CachedRemoteFileLoader } from '@/helpers/chunked-loader'
 import { sleep } from '@/helpers/promise'
 import { Circuit, circuitsStore } from '@/store/modules/circuits'
 
-export type PegasusProtocolMap = {
-  [DefaultListenerRequestMethods.Request]: ExtensionMessage<never>
-  [DefaultListenerResponseMethods.RequestResponse]: ExtensionMessage<unknown>
+export type PegasusMsgProtocolMap = {
+  [MsgProtocolRequestMethods.Request]: ExtensionMessage<never>
+  [MsgProtocolResponseMethods.RequestResponse]: ExtensionMessage<unknown>
 
-  [DefaultListenerRequestMethods.RequestConfirmation]: ExtensionMessage<{
+  [MsgProtocolRequestMethods.RequestConfirmation]: ExtensionMessage<{
     title: string
     message?: string
     data?: unknown
   }>
-  [DefaultListenerResponseMethods.ConfirmResponse]: {
+  [MsgProtocolResponseMethods.ConfirmResponse]: {
     id: number
     data: boolean
   }
 }
 
-async function startLoadingCircuit(circuit: Circuit) {
-  // Create a function to update progress in the store:
-  const updateProgress = (file: 'zKey' | 'wasm', progress: number) => {
-    circuitsStore.useCircuitsStore.getState().updateCircuit(circuit.name, {
-      // Only update the appropriate field:
-      [file === 'zKey' ? 'zKeyProgress' : 'wasmProgress']: progress,
-      loading: true,
-    })
+export type PegasusEventProtocolMap = {
+  [EventProtocolListeners.CircuitLoadingProgress]: {
+    name: string
+    progress: number
   }
-
-  const handleError = (file: 'zKey' | 'wasm', error: Error) => {
-    circuitsStore.useCircuitsStore.getState().updateCircuit(circuit.name, {
-      loadError: `${file} error: ${error.message}`,
-      loading: false,
-    })
-  }
-
-  // Create loaders with callbacks:
-  const zKeyLoader = new CachedRemoteFileLoader(circuit.zKey.url, {
-    version: circuit.zKey.version,
-    onProgress: progress => updateProgress('zKey', progress),
-    onError: error => handleError('zKey', error),
-  })
-
-  const wasmLoader = new CachedRemoteFileLoader(circuit.wasm.url, {
-    version: circuit.wasm.version,
-    onProgress: progress => updateProgress('wasm', progress),
-    onError: error => handleError('wasm', error),
-  })
-
-  try {
-    await Promise.all([zKeyLoader.loadFile(), wasmLoader.loadFile()])
-    // Mark as finished
-    circuitsStore.useCircuitsStore.getState().updateCircuit(circuit.name, {
-      loading: false,
-      zKeyProgress: 100,
-      wasmProgress: 100,
-      loadError: null,
-    })
-  } catch (error) {
-    circuitsStore.useCircuitsStore.getState().updateCircuit(circuit.name, {
-      loadError: error instanceof Error ? error.message : String(error),
-      loading: false,
-    })
-  }
+  [EventProtocolListeners.CircuitLoadingError]: Error
 }
 
 const init = async () => {
   initPegasusTransport()
 
   registerRPCService<ISelfIDService>('getSelfID', getSelfIDService)
-  definePegasusEventBus<PegasusProtocolMap>()
 
-  const messageBus = definePegasusMessageBus<PegasusProtocolMap>()
+  const eventBus = definePegasusEventBus<PegasusEventProtocolMap>()
+  const messageBus = definePegasusMessageBus<PegasusMsgProtocolMap>()
 
-  // const activeStreams = new Map<string, CachedRemoteFileLoader>()
+  const startLoadingCircuit = async (
+    circuit: Circuit,
+    opts?: {
+      onFinish?: () => void
+      onError?: (error: Error) => void
+    },
+  ) => {
+    // Create a function to update progress in the store:
+    const updateProgress = (file: 'zKey' | 'wasm', progress: number) => {
+      circuitsStore.useCircuitsStore.getState().updateCircuit(circuit.name, {
+        // Only update the appropriate field:
+        [file === 'zKey' ? 'zKeyProgress' : 'wasmProgress']: progress,
+        loading: true,
+      })
+
+      eventBus.emitBroadcastEvent(
+        EventProtocolListeners.CircuitLoadingProgress,
+        {
+          name: circuit.name,
+          progress: progress,
+        },
+      )
+
+      if (progress === 100) {
+        opts?.onFinish?.()
+      }
+    }
+
+    const handleError = (file: 'zKey' | 'wasm', error: Error) => {
+      circuitsStore.useCircuitsStore.getState().updateCircuit(circuit.name, {
+        loadError: `${file} error: ${error.message}`,
+        loading: false,
+      })
+
+      eventBus.emitBroadcastEvent(
+        EventProtocolListeners.CircuitLoadingError,
+        error,
+      )
+
+      opts?.onError?.(error)
+    }
+
+    // Create loaders with callbacks:
+    const zKeyLoader = new CachedRemoteFileLoader(circuit.zKey.url, {
+      version: circuit.zKey.version,
+      onProgress: progress => updateProgress('zKey', progress),
+      onError: error => handleError('zKey', error),
+    })
+
+    const wasmLoader = new CachedRemoteFileLoader(circuit.wasm.url, {
+      version: circuit.wasm.version,
+      onProgress: progress => updateProgress('wasm', progress),
+      onError: error => handleError('wasm', error),
+    })
+
+    try {
+      await Promise.all([zKeyLoader.loadFile(), wasmLoader.loadFile()])
+      // Mark as finished
+      circuitsStore.useCircuitsStore.getState().updateCircuit(circuit.name, {
+        loading: false,
+        zKeyProgress: 100,
+        wasmProgress: 100,
+        loadError: null,
+      })
+    } catch (error) {
+      circuitsStore.useCircuitsStore.getState().updateCircuit(circuit.name, {
+        loadError: error instanceof Error ? error.message : String(error),
+        loading: false,
+      })
+    }
+  }
 
   const waitForConfirmationResponse = async <T>(
     title: string,
@@ -105,9 +137,9 @@ const init = async () => {
 
     // Delegate confirmation: send a message to the popup.
     messageBus.sendMessage(
-      DefaultListenerRequestMethods.RequestConfirmation,
+      MsgProtocolRequestMethods.RequestConfirmation,
       {
-        method: DefaultListenerRequestMethods.RequestConfirmation,
+        method: MsgProtocolRequestMethods.RequestConfirmation,
         id: id,
         data: {
           title,
@@ -120,7 +152,7 @@ const init = async () => {
 
     return new Promise(resolve => {
       messageBus.onMessage(
-        DefaultListenerResponseMethods.ConfirmResponse,
+        MsgProtocolResponseMethods.ConfirmResponse,
         ({ data }) => {
           if (data.id !== id) return
 
@@ -144,89 +176,86 @@ const init = async () => {
       ) => Promise<unknown> | AsyncGenerator<unknown, void, unknown>
     >,
   ) => {
-    messageBus.onMessage(
-      DefaultListenerRequestMethods.Request,
-      async message => {
-        const sendResponse = (data: ExtensionMessage<unknown>) => {
-          messageBus.sendMessage(
-            DefaultListenerResponseMethods.RequestResponse,
-            data,
-            {
-              context: 'window',
-              tabId: message.sender.tabId,
-            },
-          )
-        }
+    messageBus.onMessage(MsgProtocolRequestMethods.Request, async message => {
+      const sendResponse = (data: ExtensionMessage<unknown>) => {
+        messageBus.sendMessage(
+          MsgProtocolResponseMethods.RequestResponse,
+          data,
+          {
+            context: 'window',
+            tabId: message.sender.tabId,
+          },
+        )
+      }
 
-        const { method, id } = message.data
+      const { method, id } = message.data
 
-        const sender = message.sender
+      const sender = message.sender
 
-        if (!sender.tabId) {
-          return
-        }
+      if (!sender.tabId) {
+        return
+      }
 
-        const handler = handlers[method]
+      const handler = handlers[method]
 
-        if (!handler) {
-          sendResponse({
-            method,
-            id,
-            error: `No handler for method: ${method}`,
-          })
+      if (!handler) {
+        sendResponse({
+          method,
+          id,
+          error: `No handler for method: ${method}`,
+        })
 
-          return
-        }
+        return
+      }
 
-        try {
-          const result = handler(message.data)
+      try {
+        const result = handler(message.data)
 
-          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-          // @ts-expect-error
-          if (result && typeof result[Symbol.asyncIterator] === 'function') {
-            // It's an async generator
-            await (async () => {
-              // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-              // @ts-expect-error
-              for await (const chunk of result) {
-                // Send each chunk
-                sendResponse({
-                  id,
-                  type: 'stream',
-                  method,
-                  data: { type: 'chunk', data: chunk },
-                })
-                // Yield control
-                await new Promise(resolve => setTimeout(resolve, 0))
-              }
-
-              // End of stream
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-expect-error
+        if (result && typeof result[Symbol.asyncIterator] === 'function') {
+          // It's an async generator
+          await (async () => {
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-expect-error
+            for await (const chunk of result) {
+              // Send each chunk
               sendResponse({
                 id,
                 type: 'stream',
                 method,
-                data: { type: 'end' },
+                data: { type: 'chunk', data: chunk },
               })
-            })()
-            return
-          }
+              // Yield control
+              await new Promise(resolve => setTimeout(resolve, 0))
+            }
 
+            // End of stream
+            sendResponse({
+              id,
+              type: 'stream',
+              method,
+              data: { type: 'end' },
+            })
+          })()
+          return
+        }
+
+        sendResponse({
+          method,
+          id,
+          data: await result,
+        })
+      } catch (error) {
+        if (sender.tabId) {
           sendResponse({
             method,
             id,
-            data: await result,
+            error: error instanceof Error ? error.message : error,
           })
-        } catch (error) {
-          if (sender.tabId) {
-            sendResponse({
-              method,
-              id,
-              error: error instanceof Error ? error.message : error,
-            })
-          }
         }
-      },
-    )
+      }
+    })
   }
 
   await Promise.all([circuitsStore.backendReady()])
@@ -265,6 +294,69 @@ const init = async () => {
 
       if (!circuit) {
         throw new Error('Circuit not found')
+      }
+
+      if (circuit.loading) {
+        console.log('circuit is loading, waiting for it to finish')
+
+        const checkLoading = async (): Promise<boolean> => {
+          return new Promise<boolean>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              resolve(false)
+            }, 30_000)
+
+            // Listen for progress events.
+            const unsubscribe = eventBus.onBroadcastEvent(
+              EventProtocolListeners.CircuitLoadingProgress,
+              msg => {
+                if (msg.data.name === circuit.name) {
+                  clearTimeout(timeout)
+                  unsubscribe()
+                  resolve(true)
+                }
+              },
+            )
+          })
+        }
+
+        if (!(await checkLoading())) {
+          await new Promise<void>(resolve => {
+            startLoadingCircuit(circuit, {
+              onFinish: () => {
+                resolve()
+              },
+            })
+          })
+        } else {
+          await new Promise<void>(resolve => {
+            eventBus.onBroadcastEvent(
+              EventProtocolListeners.CircuitLoadingProgress,
+              msg => {
+                if (
+                  msg.data.progress === 100 &&
+                  msg.data.name === circuit.name
+                ) {
+                  resolve()
+                }
+              },
+            )
+          })
+        }
+      } else if (
+        !circuit.loading &&
+        circuit.zKeyProgress !== 100 &&
+        circuit.wasmProgress !== 100
+      ) {
+        console.log('circuit is not loaded, loading it')
+        await new Promise<void>(resolve => {
+          startLoadingCircuit(circuit, {
+            onFinish: () => {
+              resolve()
+            },
+          })
+        })
+
+        await sleep(200)
       }
 
       const loader = new CachedRemoteFileLoader(
