@@ -1,51 +1,13 @@
 import Avatar from 'boring-avatars'
-import { useMemo, useState } from 'react'
-import { useTimeoutFn } from 'react-use'
 
-import { CachedRemoteFileLoader } from '@/helpers/chunked-loader'
 import { formatDateDMYT } from '@/helpers/formatters'
 import { Circuit } from '@/store/modules/circuits'
-import { UiButton } from '@/ui/UiButton'
 
 type Props = {
   circuit: Circuit
 }
 
 export default function CircuitItem({ circuit, ...rest }: Props) {
-  const [zKeyDownloadProgress, setZKeyDownloadProgress] = useState(0)
-  const [zKeyDownloadError, setZKeyDownloadError] = useState<Error | null>(null)
-
-  const [wasmDownloadProgress, setWasmDownloadProgress] = useState(0)
-  const [wasmDownloadError, setWasmDownloadError] = useState<Error | null>(null)
-
-  const [isDownloaded, setIsDownloaded] = useState(false)
-
-  const zKeyLoader = useMemo(
-    () =>
-      new CachedRemoteFileLoader(circuit.zKey.url, {
-        onProgress: progress => setZKeyDownloadProgress(progress),
-        onError: error => setZKeyDownloadError(error),
-      }),
-    [circuit.zKey.url],
-  )
-  const wasmLoader = useMemo(
-    () =>
-      new CachedRemoteFileLoader(circuit.wasm.url, {
-        onProgress: progress => setWasmDownloadProgress(progress),
-        onError: error => setWasmDownloadError(error),
-      }),
-    [circuit.wasm.url],
-  )
-
-  useTimeoutFn(async () => {
-    const [zKey, wasm] = await Promise.all([
-      zKeyLoader.isDownloaded(),
-      wasmLoader.isDownloaded(),
-    ])
-
-    setIsDownloaded(zKey && wasm)
-  }, 200)
-
   return (
     <li {...rest} className='flex flex-col justify-between gap-x-6 py-5'>
       <div className='flex min-w-0 gap-x-4'>
@@ -93,27 +55,18 @@ export default function CircuitItem({ circuit, ...rest }: Props) {
             )}
           </div>
 
-          {!isDownloaded && (
-            <UiButton
-              variant={'outline'}
-              onClick={() =>
-                Promise.all([zKeyLoader.loadFile(), wasmLoader.loadFile()])
-              }
-            >
-              {zKeyDownloadError || wasmDownloadError ? (
-                `Failed to load`
-              ) : (
-                <>
-                  Load{' '}
-                  {zKeyDownloadProgress &&
-                    `zkey: ${zKeyDownloadProgress.toFixed(0)}%`}{' '}
-                  {` `}{' '}
-                  {wasmDownloadProgress &&
-                    `wasm: ${wasmDownloadProgress.toFixed(0)}%`}
-                </>
-              )}
-            </UiButton>
-          )}
+          <div className='flex flex-col'>
+            {circuit.loading ? (
+              <p>
+                Loading: zKey {circuit.zKeyProgress?.toFixed(0) || 0}% | wasm{' '}
+                {circuit.wasmProgress?.toFixed(0) || 0}%
+              </p>
+            ) : circuit.loadError ? (
+              <p className='text-red-500'>Error: {circuit.loadError}</p>
+            ) : (
+              <p>Loaded</p>
+            )}
+          </div>
         </div>
       </div>
     </li>

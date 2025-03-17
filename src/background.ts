@@ -36,6 +36,53 @@ export type PegasusProtocolMap = {
   }
 }
 
+async function startLoadingCircuit(circuit: Circuit) {
+  // Create a function to update progress in the store:
+  const updateProgress = (file: 'zKey' | 'wasm', progress: number) => {
+    circuitsStore.useCircuitsStore.getState().updateCircuit(circuit.name, {
+      // Only update the appropriate field:
+      [file === 'zKey' ? 'zKeyProgress' : 'wasmProgress']: progress,
+      loading: true,
+    })
+  }
+
+  const handleError = (file: 'zKey' | 'wasm', error: Error) => {
+    circuitsStore.useCircuitsStore.getState().updateCircuit(circuit.name, {
+      loadError: `${file} error: ${error.message}`,
+      loading: false,
+    })
+  }
+
+  // Create loaders with callbacks:
+  const zKeyLoader = new CachedRemoteFileLoader(circuit.zKey.url, {
+    version: circuit.zKey.version,
+    onProgress: progress => updateProgress('zKey', progress),
+    onError: error => handleError('zKey', error),
+  })
+
+  const wasmLoader = new CachedRemoteFileLoader(circuit.wasm.url, {
+    version: circuit.wasm.version,
+    onProgress: progress => updateProgress('wasm', progress),
+    onError: error => handleError('wasm', error),
+  })
+
+  try {
+    await Promise.all([zKeyLoader.loadFile(), wasmLoader.loadFile()])
+    // Mark as finished
+    circuitsStore.useCircuitsStore.getState().updateCircuit(circuit.name, {
+      loading: false,
+      zKeyProgress: 100,
+      wasmProgress: 100,
+      loadError: null,
+    })
+  } catch (error) {
+    circuitsStore.useCircuitsStore.getState().updateCircuit(circuit.name, {
+      loadError: error instanceof Error ? error.message : String(error),
+      loading: false,
+    })
+  }
+}
+
 const init = async () => {
   initPegasusTransport()
 
@@ -191,7 +238,6 @@ const init = async () => {
     },
 
     addCircuit: async (message: ExtensionMessage<Circuit>) => {
-      console.log(message.data)
       if (!message.data) return
 
       const confirmed = await waitForConfirmationResponse(
@@ -202,12 +248,15 @@ const init = async () => {
 
       if (confirmed) {
         circuitsStore.useCircuitsStore.getState().addCircuit(message.data)
+        startLoadingCircuit(message.data)
       }
 
       await sleep(100)
     },
 
-    async *getCircuit(message: ExtensionMessage<{ name: string }>) {
+    async *getCircuit(
+      message: ExtensionMessage<{ name: string; type: 'zkey' | 'wasm' }>,
+    ) {
       if (!message.data?.name) throw new TypeError('Missing circuit name')
 
       const circuit = circuitsStore.useCircuitsStore
@@ -218,10 +267,16 @@ const init = async () => {
         throw new Error('Circuit not found')
       }
 
-      const loader = new CachedRemoteFileLoader(circuit.zKey.url, {
-        version: circuit.zKey.version,
-        // pass any additional options if needed
-      })
+      const loader = new CachedRemoteFileLoader(
+        message.data.type === 'zkey' ? circuit.zKey.url : circuit.wasm.url,
+        {
+          version:
+            message.data.type === 'zkey'
+              ? circuit.zKey.version
+              : circuit.wasm.version,
+          // pass any additional options if needed
+        },
+      )
 
       if (!(await loader.isDownloaded())) {
         await loader.loadFile()
