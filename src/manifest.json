@@ -27,8 +27,9 @@
   ],
   "web_accessible_resources": [
     {
+      "extension_ids": [],
       "resources": ["src/content-script/provider.js"],
-      "matches": ["file://*/*", "http://*/*", "https://*/*"]
+      "matches": ["<all_urls>"]
     }
   ],
   "permissions": [

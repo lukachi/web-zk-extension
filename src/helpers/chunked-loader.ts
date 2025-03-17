@@ -245,9 +245,7 @@ export class CachedRemoteFileLoader implements IRemoteFileLoader {
    */
   public async *streamFile(): AsyncGenerator<Uint8Array, void, unknown> {
     const totalSize = await this.getTotalFileSize()
-    console.log('totalSize: ', totalSize)
     this.totalChunks = Math.ceil(totalSize / this.chunkSize)
-    console.log('totalChunks: ', this.totalChunks)
 
     // Clear old versions as before.
     await this.cache.clearOldVersions(this.url, this.version)

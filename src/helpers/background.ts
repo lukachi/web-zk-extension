@@ -1,8 +1,6 @@
 import { PegasusRPCMessage } from '@webext-pegasus/rpc'
 import browser from 'webextension-polyfill'
 
-import { sleep } from '@/helpers/promise'
-
 // -----------------------------------------------
 // Types for Messages & Handlers
 // -----------------------------------------------
@@ -11,81 +9,7 @@ export interface ExtensionMessage<T> {
   id?: number
   data?: T
   error?: unknown
-  tabId?: number
-}
-
-export type HandlerFunction<T> = (
-  message: ExtensionMessage<T>,
-  sender: browser.Runtime.MessageSender,
-) => Promise<unknown>
-
-// -----------------------------------------------
-// Messaging Utilities
-// -----------------------------------------------
-export async function sendMessageToContentScript<T>(
-  tabId: number,
-  message: ExtensionMessage<T>,
-): Promise<void> {
-  try {
-    await browser.tabs.sendMessage(tabId, {
-      from: 'background',
-      to: 'content-script',
-      ...message,
-    })
-  } catch (error) {
-    console.error(`Failed to send message to tab ${tabId}:`, error)
-  }
-}
-
-export async function sendMessageToAllTabs<T>(
-  message: ExtensionMessage<T>,
-): Promise<void> {
-  const tabs = await browser.tabs.query({})
-  for (const tab of tabs) {
-    if (tab.id) {
-      await sendMessageToContentScript(tab.id, message)
-    }
-  }
-}
-
-type MessageHandlers = Record<string, HandlerFunction<never>>
-
-export function registerMessageListener(handlers: MessageHandlers) {
-  browser.runtime.onMessage.addListener(
-    async (message: ExtensionMessage<never>, sender, sendResponse) => {
-      const { method, id } = message
-      if (handlers[method]) {
-        try {
-          const result = await handlers[method](message, sender)
-          if (sender.tab && sender.tab.id) {
-            await sendMessageToContentScript(sender.tab.id, {
-              method,
-              id,
-              data: result,
-            })
-          }
-        } catch (error) {
-          if (sender.tab && sender.tab.id) {
-            await sendMessageToContentScript(sender.tab.id, {
-              method,
-              id,
-              error: error instanceof Error ? error.message : error,
-            })
-          }
-        }
-      } else {
-        if (sender.tab && sender.tab.id) {
-          await sendMessageToContentScript(sender.tab.id, {
-            method,
-            id,
-            error: `No handler for method: ${method}`,
-          })
-        }
-      }
-      sendResponse()
-      return true
-    },
-  )
+  type?: string
 }
 
 // -----------------------------------------------
@@ -172,53 +96,12 @@ export async function getSelfIDService(message: PegasusRPCMessage): Promise<{
 }
 
 export enum DefaultListenerRequestMethods {
-  RequestConfirmation = 'REQUEST_CONFIRMATION',
+  Request = 'request',
+  RequestConfirmation = 'requestConfirmation',
 }
 export enum DefaultListenerResponseMethods {
   ConfirmResponse = 'CONFIRM_RESPONSE',
-}
-
-export async function waitForConfirmationResponse<T>(
-  title: string,
-  message: string,
-  data: T,
-  id = Math.floor(Math.random() * 1000000), // FIXME: generate a random number as the id
-): Promise<boolean> {
-  const windowId = await openPopup()
-
-  await sleep(200)
-
-  // Delegate confirmation: send a message to the popup.
-  pegasusMessageBus.sendMessage(
-    DefaultListenerRequestMethods.RequestConfirmation,
-    {
-      method: DefaultListenerRequestMethods.RequestConfirmation,
-      id: id,
-      data: {
-        title,
-        message,
-        data,
-      },
-    },
-    'popup',
-  )
-
-  return new Promise(resolve => {
-    pegasusMessageBus.onMessage(
-      DefaultListenerResponseMethods.ConfirmResponse,
-      ({ data }) => {
-        if (data.id !== id) return
-
-        resolve(Boolean(data.data))
-        closePopup(windowId)
-      },
-    )
-
-    setTimeout(() => {
-      resolve(false)
-      closePopup(windowId)
-    }, 30000)
-  })
+  RequestResponse = 'request_response',
 }
 
 export async function closePopup(id: number) {
@@ -226,9 +109,4 @@ export async function closePopup(id: number) {
     method: 'closePopupByUserAction',
   })
   await browser.windows.remove(id)
-}
-
-export async function getIsPopup() {
-  const wnd = await browser.windows.getCurrent()
-  return wnd.type === 'popup'
 }
