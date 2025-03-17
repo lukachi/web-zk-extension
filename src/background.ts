@@ -4,6 +4,7 @@ import {
   definePegasusMessageBus,
 } from '@webext-pegasus/transport'
 import { initPegasusTransport } from '@webext-pegasus/transport/background'
+import { Buffer } from 'buffer'
 
 import {
   closePopup,
@@ -118,75 +119,62 @@ const init = async () => {
           return
         }
 
-        if (handlers[method]) {
-          const handler = handlers[method]
+        const handler = handlers[method]
 
-          try {
-            if (handler[Symbol.toStringTag] === 'AsyncGeneratorFunction') {
-              handler(message.data)
-              ;(async () => {
-                try {
-                  for await (const chunk of await handler(message.data)) {
-                    console.log(chunk)
-                    sendResponse({
-                      id,
-                      type: 'stream',
-                      method,
-                      data: {
-                        type: 'chunk',
-                        data: chunk,
-                      },
-                    })
-                    // Yield control to avoid blocking.
-                    await new Promise(resolve => setTimeout(resolve, 0))
-                  }
+        if (!handler) {
+          sendResponse({
+            method,
+            id,
+            error: `No handler for method: ${method}`,
+          })
 
-                  sendResponse({
-                    id,
-                    type: 'stream',
-                    method,
-                    data: {
-                      type: 'end',
-                    },
-                  })
-                } catch (error) {
-                  const errorMessage =
-                    error instanceof Error ? error.message : String(error)
-                  sendResponse({
-                    id,
-                    type: 'error',
-                    method,
-                    data: {
-                      error: errorMessage,
-                    },
-                  })
-                }
-              })()
+          return
+        }
 
-              return
-            }
+        try {
+          const result = handler(message.data)
 
-            const result = await handler(message.data)
-            sendResponse({
-              method,
-              id,
-              data: result,
-            })
-          } catch (error) {
-            if (sender.tabId) {
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-expect-error
+          if (result && typeof result[Symbol.asyncIterator] === 'function') {
+            // It's an async generator
+            await (async () => {
+              // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+              // @ts-expect-error
+              for await (const chunk of result) {
+                // Send each chunk
+                sendResponse({
+                  id,
+                  type: 'stream',
+                  method,
+                  data: { type: 'chunk', data: chunk },
+                })
+                // Yield control
+                await new Promise(resolve => setTimeout(resolve, 0))
+              }
+
+              // End of stream
               sendResponse({
-                method,
                 id,
-                error: error instanceof Error ? error.message : error,
+                type: 'stream',
+                method,
+                data: { type: 'end' },
               })
-            }
+            })()
+            return
           }
-        } else {
+
+          sendResponse({
+            method,
+            id,
+            data: await result,
+          })
+        } catch (error) {
           if (sender.tabId) {
             sendResponse({
               method,
               id,
-              error: `No handler for method: ${method}`,
+              error: error instanceof Error ? error.message : error,
             })
           }
         }
@@ -240,7 +228,6 @@ const init = async () => {
       }
 
       for await (const chunk of loader.streamFile()) {
-        console.log('yielding chunk', chunk.length)
         yield Buffer.from(chunk.buffer).toString('base64')
       }
     },
